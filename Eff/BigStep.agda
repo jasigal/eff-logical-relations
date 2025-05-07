@@ -117,3 +117,38 @@ data _⊢c_⇓_ : Env Γ → Γ ⊢c C → ClosedTerminal C → Set where
     → γ′ ⊢c M ⇓ T
       ----------------------
     → γ ⊢c V ! ⇓ T
+
+  ⇓c-seq : ∀ {γ : Env Γ}
+             {V : Γ ⊢v `⊤}
+             {M : Γ ⊢c C} {T : ClosedTerminal C}
+    → γ ⊢v V ⇓ `tt
+    → γ ⊢c M ⇓ T
+      --------------
+    → γ ⊢c V ⨾ M ⇓ T
+
+  ⇓c-pair : ∀ {γ : Env Γ}
+              {M₁ : Γ ⊢c C₁} {M₂ : Γ ⊢c C₂}
+      --------------------
+    → γ ⊢c ƛ⟨ M₁ , M₂ ⟩ ⇓ [ƛ⟨ M₁ , M₂ ⟩⨾ γ ]
+
+  ⇓c-proj₁ : ∀ {γ γ′ : Env Γ}
+               {M : Γ ⊢c C₁ & C₂} {M₁ : Γ ⊢c C₁} {M₂ : Γ ⊢c C₂}
+               {T : ClosedTerminal C₁}
+    → γ ⊢c M ⇓ [ƛ⟨ M₁ , M₂ ⟩⨾ γ′ ]
+    → γ′ ⊢c M₁ ⇓ T
+      ----------------------------
+    → γ ⊢c `proj₁ M ⇓ T
+
+  ⇓c-proj₂ : ∀ {γ γ′ : Env Γ}
+               {M : Γ ⊢c C₁ & C₂} {M₁ : Γ ⊢c C₁} {M₂ : Γ ⊢c C₂}
+               {T : ClosedTerminal C₂}
+    → γ ⊢c M ⇓ [ƛ⟨ M₁ , M₂ ⟩⨾ γ′ ]
+    → γ′ ⊢c M₂ ⇓ T
+      ----------------------------
+    → γ ⊢c `proj₂ M ⇓ T
+
+  ⇓c-return : ∀ {γ : Env Γ}
+                {V : Γ ⊢v A} {W : ClosedVal A}
+    → γ ⊢v V ⇓ W
+      ----------------------------
+    → γ ⊢c (return V) ⇓ (return W)
