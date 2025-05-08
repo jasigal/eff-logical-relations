@@ -141,7 +141,7 @@ data _⊢c_⇓_ : Env Γ → Γ ⊢c C → ClosedTerminal C → Set where
       ----------------------------
     → γ ⊢c `proj₁ M ⇓ T
 
-  ⇓c-proj₂ : ∀ {γ γ′ : Env Γ} {δ : Env Δ}
+  ⇓c-proj₂ : ∀ {γ : Env Γ} {δ : Env Δ}
                {M : Γ ⊢c C₁ & C₂} {M₁ : Δ ⊢c C₁} {M₂ : Δ ⊢c C₂}
                {T : ClosedTerminal C₂}
     → γ ⊢c M ⇓ [ƛ⟨ M₁ , M₂ ⟩⨾ δ ]

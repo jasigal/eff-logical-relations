@@ -1,4 +1,4 @@
-open import Eff.Syntax renaming ( _,_ to _,,_)
+open import Eff.Syntax renaming ( _,_ to _,,_ )
 open import Eff.BigStep
 
 open import Data.Product
@@ -8,7 +8,7 @@ open import Relation.Binary.PropositionalEquality
 module Eff.LogicalRelation where
 
 empty : Env ∅
-empty ()
+empty = λ ()
 
 ⇓v-well-defined : ∅ ⊢v A → Set
 ⇓v-well-defined V = ∃[ W ] empty ⊢v V ⇓ W
@@ -71,10 +71,12 @@ mutual
   comp-fundamental : ∀ (M : Γ ⊢c C) → Γ ⊨c M ∷ C
   comp-fundamental (ƛ M) {γ} Γ⊨γ =
     [ƛ M ⨾ γ ] , ⇓c-abs , λ W 𝓥W → comp-fundamental M (Γ⊨γ ^ 𝓥W)
-  comp-fundamental (M · V) Γ⊨γ with comp-fundamental M Γ⊨γ
-  ... | [ƛ L ⨾ δ ] , M⇓ , 𝓒Lδ =
+  comp-fundamental (M · V) Γ⊨γ
+      with comp-fundamental M Γ⊨γ
+  ... | [ƛ L ⨾ δ ] , M⇓ , 𝓒Lδ
+      with val-fundamental V Γ⊨γ
+  ... | W , V⇓ , 𝓥W =
     let
-      W , V⇓ , 𝓥W = val-fundamental V Γ⊨γ
       T , L⇓ , 𝓒T = 𝓒Lδ W 𝓥W
     in T , ⇓c-app M⇓ V⇓ L⇓ , 𝓒T
   comp-fundamental (V !) Γ⊨γ  with val-fundamental V Γ⊨γ
@@ -83,11 +85,39 @@ mutual
   ... | `tt , V⇓ , tt | T , M⇓ , 𝓒T = T , ⇓c-seq V⇓ M⇓ , 𝓒T
   comp-fundamental ƛ⟨ M₁ , M₂ ⟩ {γ} Γ⊨γ =
     [ƛ⟨ M₁ , M₂ ⟩⨾ γ ] , ⇓c-pair , comp-fundamental M₁ Γ⊨γ , comp-fundamental M₂ Γ⊨γ
-  comp-fundamental (`proj₁ M) Γ⊨γ = {!!}
-  comp-fundamental (`proj₂ M) Γ⊨γ = {!!}
+  comp-fundamental (`proj₁ M) Γ⊨γ with comp-fundamental M Γ⊨γ
+  ... | [ƛ⟨ M₁ , _ ⟩⨾ δ ] , M⇓ , (T , M₁⇓ , 𝓒T) , _ = T , ⇓c-proj₁ M⇓ M₁⇓ , 𝓒T
+  comp-fundamental (`proj₂ M) Γ⊨γ with comp-fundamental M Γ⊨γ
+  ... | [ƛ⟨ _ , M₂ ⟩⨾ δ ] , M⇓ , _ , (T , M₂⇓ , 𝓒T) = T , ⇓c-proj₂ M⇓ M₂⇓ , 𝓒T
   comp-fundamental (return V) Γ⊨γ  with val-fundamental V Γ⊨γ
   ... | W , V⇓ , 𝓥W = return W , ⇓c-return V⇓ , 𝓥W
-  comp-fundamental (`let V M) Γ⊨γ = {!!}
-  comp-fundamental (M to N) Γ⊨γ = {!!}
-  comp-fundamental (case× V M) Γ⊨γ = {!!}
-  comp-fundamental (case⊎ V M₁ M₂) Γ⊨γ = {!!}
+  comp-fundamental (`let V M) Γ⊨γ
+      with val-fundamental V Γ⊨γ
+  ... | W , V⇓ , 𝓥W
+      with comp-fundamental M (Γ⊨γ ^ 𝓥W)
+  ... | T , M⇓ , 𝓒T = T , ⇓c-let V⇓ M⇓ , 𝓒T
+  comp-fundamental (M to N) Γ⊨γ
+      with comp-fundamental M Γ⊨γ
+  ... | return W , M⇓ , 𝓥W
+      with comp-fundamental N (Γ⊨γ ^ 𝓥W)
+  ... | T , N⇓ , 𝓒T = T , ⇓c-to M⇓ N⇓ , 𝓒T
+  comp-fundamental (case× V M) Γ⊨γ
+      with val-fundamental V Γ⊨γ
+  ... | `⟨ W₁ , W₂ ⟩ , V⇓ , 𝓥W₁ , 𝓥W₂
+      with comp-fundamental M (Γ⊨γ ^ 𝓥W₁ ^ 𝓥W₂)
+  ... | T , M⇓ , 𝓒T = T , ⇓c-case× V⇓ M⇓ , 𝓒T
+  comp-fundamental (case⊎ V M₁ M₂) Γ⊨γ with val-fundamental V Γ⊨γ
+  comp-fundamental (case⊎ V M₁ M₂) Γ⊨γ | `inj₁ W , V⇓ , 𝓥W with comp-fundamental M₁ (Γ⊨γ ^ 𝓥W)
+  comp-fundamental (case⊎ V M₁ M₂) Γ⊨γ | `inj₁ W , V⇓ , 𝓥W | T , N⇓ , 𝓒T
+    = T , ⇓c-case⊎-inj₁ V⇓ N⇓ , 𝓒T
+  comp-fundamental (case⊎ V M₁ M₂) Γ⊨γ | `inj₂ W , V⇓ , 𝓥W with comp-fundamental M₂ (Γ⊨γ ^ 𝓥W)
+  comp-fundamental (case⊎ V M₁ M₂) Γ⊨γ | `inj₂ W , V⇓ , 𝓥W | T , N⇓ , 𝓒T
+    = T , ⇓c-case⊎-inj₂ V⇓ N⇓ , 𝓒T
+
+⇓v-total : ∀ (V : ∅ ⊢v A) → ⇓v-well-defined V
+⇓v-total V with val-fundamental V {γ = λ ()} (λ ())
+... | W , V⇓ , _ = W , V⇓
+
+⇓c-total : ∀ (M : ∅ ⊢c C) → ⇓c-well-defined M
+⇓c-total M with comp-fundamental M {γ = λ ()} (λ ())
+... | T , M⇓ , _ = T , M⇓
