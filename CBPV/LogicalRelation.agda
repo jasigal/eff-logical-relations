@@ -1,11 +1,11 @@
-open import Eff.Syntax renaming ( _,_ to _,,_ )
-open import Eff.BigStep
+open import CBPV.Syntax renaming ( _,_ to _,,_ )
+open import CBPV.BigStep
 
 open import Data.Product
 open import Data.Unit
 open import Relation.Binary.PropositionalEquality
 
-module Eff.LogicalRelation where
+module CBPV.LogicalRelation where
 
 empty : Env ∅
 empty = λ ()

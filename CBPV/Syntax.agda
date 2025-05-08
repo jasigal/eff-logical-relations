@@ -1,4 +1,4 @@
-module Eff.Syntax where
+module CBPV.Syntax where
 
 mutual
   data ValType : Set where

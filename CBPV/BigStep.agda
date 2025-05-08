@@ -1,8 +1,8 @@
 open import Relation.Binary.PropositionalEquality
 
-open import Eff.Syntax
+open import CBPV.Syntax
 
-module Eff.BigStep where
+module CBPV.BigStep where
 
 mutual
   Env : Context → Set
