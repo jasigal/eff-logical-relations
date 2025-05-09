@@ -114,8 +114,9 @@ mutual
     op :
         A ↝ B ∈ E
       → Γ ⊢v A
+      → Γ , B ⊢⟨ E ⟩c C
         -------------
-      → Γ ⊢⟨ E ⟩c 𝑭 B
+      → Γ ⊢⟨ E ⟩c C
 
     `with_handle_ :
         Γ ⊢h A [ E ]⇛[ F ] C
@@ -198,7 +199,7 @@ mutual
         --------------------
       → Γ ⊢h A [ ∅ ]⇛[ F ] C
 
-    op⇛ : ∀ {A′ B′ : ValType}
+    op⇒ : ∀ {A′ B′ : ValType}
       → Γ , A′ , 𝑼⟨ F ⟩ (B′ ⇒ C) ⊢⟨ F ⟩c C
       → Γ ⊢h A [ E ]⇛[ F ] C
         ----------------------------------
@@ -217,52 +218,9 @@ infixr 5 _to_
 
 return-clause : ∀ {E : Effect} → Γ ⊢h A [ E ]⇛[ F ] C → Γ , A ⊢⟨ F ⟩c C
 return-clause {E = ∅} (return⇒ M) = M
-return-clause {E = E , _} (op⇛ _ h) = return-clause h
+return-clause {E = E , _} (op⇒ _ h) = return-clause h
 
 op-clause : ∀ {A′ B′ : ValType} {E : Effect}
   → A′ ↝ B′ ∈ E → Γ ⊢h A [ E ]⇛[ F ] C → Γ , A′ , 𝑼⟨ F ⟩ (B′ ⇒ C) ⊢⟨ F ⟩c C
-op-clause {A′ = A′} {B′ = B′} {E = E , .(A′ ↝ B′)} Z (op⇛ M _) = M
-op-clause {E = E , x} (S i) (op⇛ _ h) = op-clause i h
-
-mutual
-  ext-var : Γ ++ Δ ∋ A → (Γ , B) ++ Δ ∋ A
-  ext-var {Δ = ∅} x = S x
-  ext-var {Δ = Δ , A} Z = Z
-  ext-var {Δ = Δ , A} (S x) = S ext-var x
- 
-  ext-val : Γ ++ Δ ⊢v A → (Γ , B) ++ Δ ⊢v A
-  ext-val {Δ = Δ} (` x) = ` ext-var x
-  ext-val `tt = `tt
-  ext-val ｛ M ｝ = ｛ ext-comp M ｝
-  ext-val `⟨ V₁ , V₂ ⟩ = `⟨ ext-val V₁ , ext-val V₂ ⟩
-  ext-val (`inj₁ V) = `inj₁ (ext-val V)
-  ext-val (`inj₂ V) = `inj₂ (ext-val V)
-
-  ext-comp : Γ ++ Δ ⊢⟨ E ⟩c C → (Γ , B) ++ Δ ⊢⟨ E ⟩c C
-  ext-comp (op i V) = op i (ext-val V)
-  ext-comp (`with H handle M) = `with ext-hand H handle ext-comp M
-  ext-comp {Γ = Γ} {Δ = Δ} {B = B} (ƛ_ {A = A} M) =
-    ƛ ext-comp {Γ = Γ} {Δ = Δ , A} {B = B} M
-  ext-comp (M · V) = ext-comp M · ext-val V
-  ext-comp (V !) = ext-val V !
-  ext-comp (V ⨾ M) = ext-val V ⨾ ext-comp M
-  ext-comp ƛ⟨ M₁ , M₂ ⟩ = ƛ⟨ ext-comp M₁ , ext-comp M₂ ⟩
-  ext-comp (`proj₁ M) = `proj₁ (ext-comp M)
-  ext-comp (`proj₂ M) = `proj₂ (ext-comp M)
-  ext-comp (return V) = return (ext-val V)
-  ext-comp {Γ = Γ} {Δ = Δ} {B = B} (`let {A = A} V M) =
-    `let (ext-val V) (ext-comp {Γ = Γ} {Δ = Δ , A} {B = B} M)
-  ext-comp {Γ = Γ} {Δ = Δ} {B = B} (_to_ {A = A} M N) =
-    (ext-comp M) to (ext-comp {Γ = Γ} {Δ = Δ , A} {B = B} N)
-  ext-comp {Γ = Γ} {Δ = Δ} {B = B} (case× {A₁ = A₁} {A₂ = A₂} V M) =
-    case× (ext-val V) (ext-comp {Γ = Γ} {Δ = Δ , A₁ , A₂} {B = B} M)
-  ext-comp {Γ = Γ} {Δ = Δ} {B = B} (case⊎ {A₁ = A₁} {A₂ = A₂} V M₁ M₂) =
-    case⊎ (ext-val V)
-      (ext-comp {Γ = Γ} {Δ = Δ , A₁} {B = B} M₁)
-      (ext-comp {Γ = Γ} {Δ = Δ , A₂} {B = B} M₂)
-
-  ext-hand : Γ ++ Δ ⊢h A [ E ]⇛[ F ] C → (Γ , B) ++ Δ ⊢h A [ E ]⇛[ F ] C
-  ext-hand {Γ = Γ} {Δ = Δ} {A = A} {B = B} (return⇒ M) =
-    return⇒ (ext-comp {Γ = Γ} {Δ = Δ , A} {B = B} M)
-  ext-hand {Γ} {Δ} {A} {E} {F} {C} {B} (op⇛ {A′ = A′} {B′ = B′} M H) =
-    op⇛ (ext-comp {Γ = Γ} {Δ = Δ ,  A′ , 𝑼⟨ F ⟩ (B′ ⇒ C)} {B = B} M) (ext-hand H)
+op-clause {A′ = A′} {B′ = B′} {E = E , .(A′ ↝ B′)} Z (op⇒ M _) = M
+op-clause {E = E , x} (S i) (op⇒ _ h) = op-clause i h
