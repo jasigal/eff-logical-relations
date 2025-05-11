@@ -111,7 +111,7 @@ mutual
 
   data _⊢⟨_⟩c_ : Context → Effect → CompType → Set where
 
-    op :
+    op[_]_⟨ƛ_⟩ :
         A ↝ B ∈ E
       → Γ ⊢v A
       → Γ , B ⊢⟨ E ⟩c C

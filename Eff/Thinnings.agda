@@ -45,6 +45,13 @@ wkᵣ : Γ ⊑ Γ ++ Δ
 wkᵣ {Δ = ∅}     = idₜ
 wkᵣ {Δ = Δ , A} = skip wkᵣ
 
+wkₘ : Γ₁ ++ Γ₂ ⊑ (Γ₁ ++ Δ) ++ Γ₂
+wkₘ {Γ₂ = ∅} = wkᵣ
+wkₘ {Γ₂ = Γ₂ , A} = keep (wkₘ {Γ₂ = Γ₂})
+
+wkᵣ, : Γ , A ⊑ (Γ ++ Δ) , A
+wkᵣ, {A = A} = wkₘ {Γ₂ = ∅ , A}
+
 wkₗ : Γ ⊑ Δ ++ Γ
 wkₗ {∅}     {∅}     = nil
 wkₗ {∅}     {Δ , A} = skip wkₗ
@@ -79,7 +86,7 @@ mutual
   `inj₂ V ↑v t = `inj₂ (V ↑v t)
 
   _↑c_ : Γ ⊢⟨ E ⟩c C → Γ ⊑ Δ → Δ ⊢⟨ E ⟩c C
-  op i V M ↑c t = op i (V ↑v t) (M ↑c keep t)
+  op[ i ] V ⟨ƛ M ⟩ ↑c t = op[ i ] (V ↑v t) ⟨ƛ M ↑c keep t ⟩
   (`with B handle M) ↑c t = `with (B ↑h t) handle (M ↑c t)
   (ƛ M) ↑c t = ƛ (M ↑c keep t)
   M · V ↑c t = (M ↑c t) · (V ↑v t)
@@ -120,7 +127,7 @@ mutual
   ↑v-idₜ {V = `inj₂ V} = cong `inj₂ ↑v-idₜ
   
   ↑c-idₜ : ∀ {M : Γ ⊢⟨ E ⟩c C} → M ↑c idₜ ≡ M
-  ↑c-idₜ {M = op i V M} = cong₂ (op i) ↑v-idₜ ↑c-idₜ
+  ↑c-idₜ {M = op[ i ] V ⟨ƛ M ⟩} = cong₂ op[ i ]_⟨ƛ_⟩ ↑v-idₜ ↑c-idₜ
   ↑c-idₜ {M = `with B handle M} = cong₂ `with_handle_ ↑h-idₜ ↑c-idₜ
   ↑c-idₜ {M = ƛ M} = cong ƛ_ ↑c-idₜ
   ↑c-idₜ {M = M · V} = cong₂ _·_ ↑c-idₜ ↑v-idₜ
@@ -151,7 +158,7 @@ mutual
 
   ↑c-∘ₜ : ∀ {Γ Δ Ω} {M : Γ ⊢⟨ E ⟩c C} {t : Δ ⊑ Ω} {s : Γ ⊑ Δ}
     → M ↑c s ↑c t ≡ M ↑c (t ∘ₜ s)
-  ↑c-∘ₜ {M = op i V M} = cong₂ (op i) ↑v-∘ₜ ↑c-∘ₜ
+  ↑c-∘ₜ {M = op[ i ] V ⟨ƛ M ⟩} = cong₂ op[ i ]_⟨ƛ_⟩ ↑v-∘ₜ ↑c-∘ₜ
   ↑c-∘ₜ {M = `with B handle M} = cong₂ `with_handle_ ↑h-∘ₜ ↑c-∘ₜ
   ↑c-∘ₜ {M = ƛ M} = cong ƛ_ ↑c-∘ₜ
   ↑c-∘ₜ {M = M · V} = cong₂ _·_ ↑c-∘ₜ ↑v-∘ₜ
