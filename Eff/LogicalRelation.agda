@@ -3,7 +3,11 @@ open import Eff.BigStep
 
 open import Data.Product
 open import Data.Unit
+open import Data.Empty
+open import Data.Sum
+open import Data.Nat
 open import Relation.Binary.PropositionalEquality
+open import Induction.WellFounded
 
 module Eff.LogicalRelation where
 
@@ -17,44 +21,73 @@ empty = λ ()
 ⇓c-well-defined {E = E} M = ∃[ T ] empty ⊢⟨ E ⟩c M ⇓ T
 
 mutual
-  𝓥⟦_⟧ : ∀ (A : ValType) → ClosedVal A → Set
-  𝓥⟦ `⊤ ⟧ `tt = ⊤
-  𝓥⟦ 𝑼⟨ E ⟩ C ⟧ [｛ M ｝⨾ γ ] = 𝓜⟦ C ⟧ M γ
-  𝓥⟦ A₁ `× A₂ ⟧ `⟨ W₁ , W₂ ⟩ = 𝓥⟦ A₁ ⟧ W₁ × 𝓥⟦ A₂ ⟧ W₂
-  𝓥⟦ A₁ `⊎ A₂ ⟧ (`inj₁ W) = 𝓥⟦ A₁ ⟧ W
-  𝓥⟦ A₁ `⊎ A₂ ⟧ (`inj₂ W) = 𝓥⟦ A₂ ⟧ W
+  𝓥⟦_⟧ : ∀ (A : ValType) → ℕ → ClosedVal A → Set
+  𝓥⟦ _ ⟧ zero _ = ⊥
+  𝓥⟦ `⊤ ⟧ n@(suc _) `tt = ⊤
+  𝓥⟦ 𝑼⟨ E ⟩ C ⟧ n@(suc _) [｛ M ｝⨾ γ ] = 𝓜⟦ C ⟧ n M γ
+  𝓥⟦ A₁ `× A₂ ⟧ n@(suc _) `⟨ W₁ , W₂ ⟩ = 𝓥⟦ A₁ ⟧ n W₁ × 𝓥⟦ A₂ ⟧ n W₂
+  𝓥⟦ A₁ `⊎ A₂ ⟧ n@(suc _) (`inj₁ W) = 𝓥⟦ A₁ ⟧ n W
+  𝓥⟦ A₁ `⊎ A₂ ⟧ n@(suc _) (`inj₂ W) = 𝓥⟦ A₂ ⟧ n W
 
-  𝓒⟦_⟧ : ∀ (C : CompType) → ClosedTerminal E C → Set
-  𝓒⟦ A ⇒ C ⟧ [ƛ M ⨾ γ ] = ∀ (W : ClosedVal A) → 𝓥⟦ A ⟧ W → 𝓜⟦ C ⟧ M (γ ,, W)
-  𝓒⟦ 𝑭 A ⟧ (return W) = 𝓥⟦ A ⟧ W
-  𝓒⟦ C₁ & C₂ ⟧ [ƛ⟨ M₁ , M₂ ⟩⨾ γ ] = 𝓜⟦ C₁ ⟧ M₁ γ × 𝓜⟦ C₂ ⟧ M₂ γ
-  𝓒⟦ C ⟧ ([op[_]_⟨ƛ_⟩⨾_] {A = A} {B = B} i W N γ) = {!!}
-  
-  𝓜⟦_⟧ : ∀ (C : CompType) → Γ ⊢⟨ E ⟩c C → Env Γ → Set
-  𝓜⟦_⟧ {E = E} C M γ = ∃[ T ] γ ⊢⟨ E ⟩c M ⇓ T × 𝓒⟦ C ⟧ T
+  𝓒⟦_⟧ : ∀ (C : CompType) → ℕ → ClosedTerminal E C → Set
+  𝓒⟦ _ ⟧ zero _ = ⊥
+  𝓒⟦ A ⇒ C ⟧ n@(suc _) [ƛ M ⨾ γ ] = ∀ (W : ClosedVal A) → 𝓥⟦ A ⟧ n W → 𝓜⟦ C ⟧ n M (γ ,, W)
+  𝓒⟦ A ⇒ C ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
+    𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ A ⇒ C ⟧ n N (γ ,, Y))
+  𝓒⟦ 𝑭 A ⟧ n@(suc _) (return W) = 𝓥⟦ A ⟧ n W
+  𝓒⟦ 𝑭 A ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
+    𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ 𝑭 A ⟧ n N (γ ,, Y))
+  𝓒⟦ C₁ & C₂ ⟧ n@(suc _) [ƛ⟨ M₁ , M₂ ⟩⨾ γ ] = 𝓜⟦ C₁ ⟧ n M₁ γ × 𝓜⟦ C₂ ⟧ n M₂ γ
+  𝓒⟦ C₁ & C₂ ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
+    𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ C₁ & C₂ ⟧ n N (γ ,, Y))
 
-_⊨_ : ∀ (Γ : Context) → Env Γ → Set
-Γ ⊨ γ = ∀ {A : ValType} → (x : Γ ∋ A) → 𝓥⟦ A ⟧ (γ x)
+  𝓜⟦_⟧ : ∀ (C : CompType) → ℕ → Γ ⊢⟨ E ⟩c C → Env Γ → Set
+  𝓜⟦_⟧ C zero _ _ = ⊥
+  𝓜⟦_⟧ {E = E} C n@(suc _) M γ = ∃[ T ] γ ⊢⟨ E ⟩c M ⇓ T × (𝓒⟦ C ⟧ n T)
 
-infix 4 _⊨_
+-- mutual
+--   𝓥⟦_⟧ : ∀ {T : Type} → (A : ValType) → Acc _⊰_ T → ClosedVal A → Set
+--   𝓥⟦ `⊤ ⟧ a `tt = ⊤
+--   𝓥⟦ 𝑼⟨ E ⟩ C ⟧ _ [｛ M ｝⨾ γ ] = 𝓜⟦ C ⟧ (⊰-wf (inj₁ E)) M γ
+--   𝓥⟦ A₁ `× A₂ ⟧ a `⟨ W₁ , W₂ ⟩ = 𝓥⟦ A₁ ⟧ a W₁ × 𝓥⟦ A₂ ⟧ a W₂
+--   𝓥⟦ A₁ `⊎ A₂ ⟧ a (`inj₁ W) = 𝓥⟦ A₁ ⟧ a W
+--   𝓥⟦ A₁ `⊎ A₂ ⟧ a (`inj₂ W) = 𝓥⟦ A₂ ⟧ a W
 
-_^_ : ∀ {γ : Env Γ} {W : ClosedVal A}
-  → Γ ⊨ γ → 𝓥⟦ A ⟧ W → Γ ,c A ⊨ γ ,, W
-(Γ⊨γ ^ W) Z = W
-(Γ⊨γ ^ W) (S x) = Γ⊨γ x
+--   𝓒⟦_⟧ : ∀ {T : Type} {p : T ≡ inj₁ E} (C : CompType) → Acc _⊰_ T → ClosedTerminal E C → Set
+--   𝓒⟦ A ⇒ C ⟧ a [ƛ M ⨾ γ ] = ∀ (W : ClosedVal A) → 𝓥⟦ A ⟧ a W → 𝓜⟦ C ⟧ a M (γ ,, W)
+--   𝓒⟦ 𝑭 A ⟧ a (return W) = 𝓥⟦ A ⟧ a W
+--   𝓒⟦ C₁ & C₂ ⟧ a [ƛ⟨ M₁ , M₂ ⟩⨾ γ ] = 𝓜⟦ C₁ ⟧ a M₁ γ × 𝓜⟦ C₂ ⟧ a M₂ γ
+--   𝓒⟦_⟧ {E = E} {T = T} {p = p} C a@(acc rs) ([op[_]_⟨ƛ_⟩⨾_] {A = A} {B = B} i W N γ) =
+--     let
+--       ra = rs {y = inj₂ (inj₁ A)} (subst (λ x → inj₂ (inj₁ A) ⊰ x) (sym p) (⊰-op-inp i))
+--       rb = rs {y = inj₂ (inj₁ B)} (subst (λ x → inj₂ (inj₁ B) ⊰ x) (sym p) (⊰-op-out i))
+--     in {!!} -- 𝓥⟦ A ⟧ ra W × (∀ (Y : ClosedVal B) → 𝓥⟦ B ⟧ rb Y → 𝓜⟦ C ⟧ a N (γ ,, Y))
 
-infixl 5 _^_
+--   𝓜⟦_⟧ : ∀ {T : Type} (C : CompType) → Acc _⊰_ T → Γ ⊢⟨ E ⟩c C → Env Γ → Set
+--   𝓜⟦_⟧ {E = E} C a M γ = ∃[ T ] γ ⊢⟨ E ⟩c M ⇓ T × (𝓒⟦_⟧ {p = refl} C (⊰-wf (inj₁ E)) T)
 
-val-semantic-typing : Γ ⊢v A → Set
-val-semantic-typing {Γ} {A} V =
-  ∀ {γ : Env Γ} → Γ ⊨ γ → ∃[ W ] γ ⊢v V ⇓ W × 𝓥⟦ A ⟧ W
+-- _⊨_ : ∀ (Γ : Context) → Env Γ → Set
+-- Γ ⊨ γ = ∀ {A : ValType} → (x : Γ ∋ A) → 𝓥⟦ A ⟧ (γ x)
 
-comp-semantic-typing : Γ ⊢⟨ E ⟩c C → Set
-comp-semantic-typing {Γ} {E} {C} M =
-  ∀ {γ : Env Γ} → Γ ⊨ γ → 𝓜⟦ C ⟧ M γ
+-- infix 4 _⊨_
 
-syntax val-semantic-typing {Γ} {A} V = Γ ⊨v V ∷ A
-syntax comp-semantic-typing {Γ} {C} M = Γ ⊨c M ∷ C
+-- _^_ : ∀ {γ : Env Γ} {W : ClosedVal A}
+--   → Γ ⊨ γ → 𝓥⟦ A ⟧ W → Γ ,c A ⊨ γ ,, W
+-- (Γ⊨γ ^ W) Z = W
+-- (Γ⊨γ ^ W) (S x) = Γ⊨γ x
+
+-- infixl 5 _^_
+
+-- val-semantic-typing : Γ ⊢v A → Set
+-- val-semantic-typing {Γ} {A} V =
+--   ∀ {γ : Env Γ} → Γ ⊨ γ → ∃[ W ] γ ⊢v V ⇓ W × 𝓥⟦ A ⟧ W
+
+-- comp-semantic-typing : Γ ⊢⟨ E ⟩c C → Set
+-- comp-semantic-typing {Γ} {E} {C} M =
+--   ∀ {γ : Env Γ} → Γ ⊨ γ → 𝓜⟦ C ⟧ M γ
+
+-- syntax val-semantic-typing {Γ} {A} V = Γ ⊨v V ∷ A
+-- syntax comp-semantic-typing {Γ} {C} M = Γ ⊨c M ∷ C
 
 -- mutual
 --   val-fundamental : ∀ (V : Γ ⊢v A) → Γ ⊨v V ∷ A
