@@ -4,7 +4,7 @@ open import Eff.BigStep
 open import Level
 open import Data.Container.Indexed as CI
 open import Data.Container as C hiding ( _∈_ )
-open import Data.W as W
+open import Data.W as W hiding ( induction )
 open import Data.W.Indexed as WI
 open import Data.Product
 open import Data.Sum
@@ -57,6 +57,26 @@ module _ (E : Effect) {ℓ : Level}
   MON : ∀ (A : ValType) → Pred (mon A) _
   MON A = CI.μ (CON A)
 
-  test : ∀ (m : mon A) → MON A m → Set ℓ
-  test (sup (inj₁ x , _)) (sup (sx , _)) = {!!}
-  test (sup (inj₂ (((A′ , B′) , i) , p) , k)) (sup (sp , sk)) = {!!}
+  record MON-hypotheses (A : ValType) {P : Pred (mon A) ℓ} : Set ℓ where
+    field
+      base  : ∀ {abs} (x : Dom A) → Sub A x → P (sup (inj₁ x , abs))
+      induction :
+        ∀ {A′ B′ : ValType}
+        → (i : A′ ↝ B′ ∈ E)
+        → (p : Dom A′)
+        → (sp : Sub A′ p)
+        → (k : Dom B′ → mon A)
+        → (∀ (b : Dom B′) → Sub B′ b → P (k b))
+        → P (sup (inj₂ (((A′ , B′) , i) , p) , k))
+
+  open MON-hypotheses
+
+  MON-induct : ∀ (A : ValType)
+             → ∀ {P : Pred (mon A) ℓ}
+             → MON-hypotheses A {P}
+             → ∀ {m : mon A} → MON A m → P m
+  MON-induct A {P} ih M = iter (CON A) {ℓ = ℓ} {X = P} f M
+    where
+    f : ∀ {m : mon A} → CI.⟦ CON A ⟧ P m → P m
+    f {sup (inj₁ x , _)} (sx , _) = base ih x sx
+    f {sup (inj₂ (((A′ , B′) , i) , p) , k)} (sp , sk) = induction ih i p sp k λ b sb → sk (b , sb)
