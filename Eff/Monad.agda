@@ -14,9 +14,9 @@ open import Relation.Unary hiding ( _∈_ )
 
 module Eff.Monad where
 
-module _ (E : Effect) {ℓ : Level}
-         (Dom : ValType → Set ℓ)
-         (Sub : ∀ (A : ValType) → Pred (Dom A) ℓ)
+module Make (E : Effect) {ℓ : Level}
+            (Dom : ValType → Set ℓ)
+            (Sub : ∀ (A : ValType) → Pred (Dom A) ℓ)
   where
 
   Σ-op : Set
@@ -75,7 +75,7 @@ module _ (E : Effect) {ℓ : Level}
   RES A {op {B′ = B′} _ _ _} _ = Σ[ b ∈ Dom B′ ] Sub B′ b
 
   nxt : ∀ (A : ValType) → ∀ {o : OVER A} → (c : COM A o) → RES A {o} c → OVER A
-  nxt A {op _ _ k} _ (b , _) = k b
+  nxt A {op _ _ k} _ (b , _ ) = k b
 
   CON : ∀ (A : ValType) → CI.Container (OVER A) (OVER A) _ _
   CON A .Command = COM A
@@ -94,7 +94,7 @@ module _ (E : Effect) {ℓ : Level}
         → (p : Dom A′)
         → (sp : Sub A′ p)
         → (k : Dom B′ → mon A)
-        → (∀ (b : Dom B′) → Sub B′ b → P (k b))
+        → (sk : ∀ (b : Dom B′) → Sub B′ b → P (k b))
         → P (op i p k)
 
   open MON-hypotheses
@@ -108,3 +108,20 @@ module _ (E : Effect) {ℓ : Level}
     f : ∀ {m : mon A} → CI.⟦ CON A ⟧ P m → P m
     f {ret x} (sx , _) = base ih x sx
     f {op i p k} (sp , sk) = induct ih i p sp k λ b sb → sk (b , sb)
+
+postulate
+  Eff : Effect
+  𝓥⟦_⟧ : ∀ (A : ValType) → ClosedVal A → Set
+
+open Make
+  Eff
+  (λ A → ClosedVal A × ClosedTerminal Eff (𝑭 A) × ∃[ Γ ] (Γ ⊢⟨ Eff ⟩c 𝑭 A) × Env Γ)
+  (λ A x → 𝓥⟦ A ⟧ (x .proj₁))
+
+embed : ClosedTerminal Eff (𝑭 A) → mon A
+embed (return x) = ret {λ ()} {!!}
+embed [op[ i ] W ⟨ƛ N ⟩⨾ γ ] = {!!}
+
+-- 𝓥⟦ A′ ⟧ W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ Y → ∃[ T ] (γ ,, Y) ⊢⟨ E ⟩c N ⇓ T × 𝓒⟦ 𝑭 A ⟧ T
+
+-- λ (Y , γ , N , T) → (γ ,, Y) ⊢⟨ E ⟩c N ⇓ T × 𝓒⟦ 𝑭 A ⟧ T

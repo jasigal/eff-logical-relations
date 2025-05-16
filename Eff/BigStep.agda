@@ -1,4 +1,5 @@
 open import Relation.Binary.PropositionalEquality
+open import Data.Product.Base using ( ∃-syntax )
 
 open import Eff.Syntax
 open import Eff.Thinnings
