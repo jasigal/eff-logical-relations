@@ -85,6 +85,9 @@ module Make (E : Effect) {ℓ : Level}
   MON : ∀ (A : ValType) → Pred (mon A) _
   MON A = CI.μ (CON A)
 
+  pattern RET {abs} x = sup (x , abs)
+  pattern OP p k      = sup (p , k)
+
   record MON-hypotheses (A : ValType) {P : Pred (mon A) ℓ} : Set ℓ where
     field
       base : ∀ {abs} (x : Dom A) → Sub A x → P (ret {abs} x)
@@ -115,12 +118,21 @@ postulate
 
 open Make
   Eff
-  (λ A → ClosedVal A × ClosedTerminal Eff (𝑭 A) × ∃[ Γ ] (Γ ⊢⟨ Eff ⟩c 𝑭 A) × Env Γ)
-  (λ A x → 𝓥⟦ A ⟧ (x .proj₁))
+  ClosedVal
+  𝓥⟦_⟧
 
-embed : ClosedTerminal Eff (𝑭 A) → mon A
-embed (return x) = ret {λ ()} {!!}
-embed [op[ i ] W ⟨ƛ N ⟩⨾ γ ] = {!!}
+data Embed : (A : ValType) → ClosedTerminal Eff (𝑭 A) → mon A → Set where
+  embed-ret : ∀ (x : ClosedVal A) → Embed A (return x) (ret {λ ()} x)
+  embed-op  : ∀ {A′ B′ : ValType}
+    → (i : A′ ↝ B′ ∈ Eff)
+    → (W : ClosedVal A′)
+    → (N : Γ ,c B′ ⊢⟨ Eff ⟩c 𝑭 A)
+    → (γ : Env Γ)
+    → (k : ∀ (Y : ClosedVal B′) → ∃[ T ] ((γ ,, Y) ⊢⟨ Eff ⟩c N ⇓ T) × ∃[ m ] Embed A T m)
+    → Embed A [op[ i ] W ⟨ƛ N ⟩⨾ γ ] (op i W λ x → let (_ , _ , m , _) = k x in m)
+
+𝓒⟦_⟧ : ∀ (A : ValType) → Pred (ClosedTerminal Eff (𝑭 A)) 0ℓ
+𝓒⟦_⟧ A T = ∃[ m ] Embed A T m × MON A m
 
 -- 𝓥⟦ A′ ⟧ W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ Y → ∃[ T ] (γ ,, Y) ⊢⟨ E ⟩c N ⇓ T × 𝓒⟦ 𝑭 A ⟧ T
 
