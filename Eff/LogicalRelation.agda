@@ -1,11 +1,13 @@
 open import Eff.Syntax renaming ( _,_ to _,c_ )
 open import Eff.BigStep
+open import Eff.Monad
 
 open import Data.Product
 open import Data.Unit
 open import Data.Empty
 open import Data.Sum
 open import Data.Nat
+open import Relation.Unary hiding ( ∅ ; _∈_ )
 open import Relation.Binary.PropositionalEquality
 open import Induction.WellFounded
 
@@ -21,29 +23,51 @@ empty = λ ()
 ⇓c-well-defined {E = E} M = ∃[ T ] empty ⊢⟨ E ⟩c M ⇓ T
 
 mutual
-  𝓥⟦_⟧ : ∀ (A : ValType) → ℕ → ClosedVal A → Set
-  𝓥⟦ _ ⟧ zero _ = ⊥
-  𝓥⟦ `⊤ ⟧ n@(suc _) `tt = ⊤
-  𝓥⟦ 𝑼⟨ E ⟩ C ⟧ n@(suc _) [｛ M ｝⨾ γ ] = 𝓜⟦ C ⟧ n M γ
-  𝓥⟦ A₁ `× A₂ ⟧ n@(suc _) `⟨ W₁ , W₂ ⟩ = 𝓥⟦ A₁ ⟧ n W₁ × 𝓥⟦ A₂ ⟧ n W₂
-  𝓥⟦ A₁ `⊎ A₂ ⟧ n@(suc _) (`inj₁ W) = 𝓥⟦ A₁ ⟧ n W
-  𝓥⟦ A₁ `⊎ A₂ ⟧ n@(suc _) (`inj₂ W) = 𝓥⟦ A₂ ⟧ n W
+  𝓥⟦_⟧ : ∀ (A : ValType) → ClosedVal A → Set
+  𝓥⟦ `⊤ ⟧ `tt = ⊤
+  𝓥⟦ 𝑼⟨ F ⟩ (𝑭 A) ⟧ [｛ M ｝⨾ γ ] = ∃[ T ] γ ⊢⟨ F ⟩c M ⇓ T × 𝓒⟦𝑭 A ⟧ T
+  𝓥⟦ A₁ `× A₂ ⟧ `⟨ W₁ , W₂ ⟩ = 𝓥⟦ A₁ ⟧ W₁ × 𝓥⟦ A₂ ⟧ W₂
+  𝓥⟦ A₁ `⊎ A₂ ⟧ (`inj₁ W) = 𝓥⟦ A₁ ⟧ W
+  𝓥⟦ A₁ `⊎ A₂ ⟧ (`inj₂ W) = 𝓥⟦ A₂ ⟧ W
+  𝓥⟦ _ ⟧ _ = {!!}
 
-  𝓒⟦_⟧ : ∀ (C : CompType) → ℕ → ClosedTerminal E C → Set
-  𝓒⟦ _ ⟧ zero _ = ⊥
-  𝓒⟦ A ⇒ C ⟧ n@(suc _) [ƛ M ⨾ γ ] = ∀ (W : ClosedVal A) → 𝓥⟦ A ⟧ n W → 𝓜⟦ C ⟧ n M (γ ,, W)
-  𝓒⟦ A ⇒ C ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
-    𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ A ⇒ C ⟧ n N (γ ,, Y))
-  𝓒⟦ 𝑭 A ⟧ n@(suc _) (return W) = 𝓥⟦ A ⟧ n W
-  𝓒⟦ 𝑭 A ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
-    𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ 𝑭 A ⟧ n N (γ ,, Y))
-  𝓒⟦ C₁ & C₂ ⟧ n@(suc _) [ƛ⟨ M₁ , M₂ ⟩⨾ γ ] = 𝓜⟦ C₁ ⟧ n M₁ γ × 𝓜⟦ C₂ ⟧ n M₂ γ
-  𝓒⟦ C₁ & C₂ ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
-    𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ C₁ & C₂ ⟧ n N (γ ,, Y))
+  data Embed : (A : ValType) → ClosedTerminal E (𝑭 A) → Make.mon E ClosedVal 𝓥⟦_⟧ A → Set where
+    embed-ret : ∀ {E : Effect} (x : ClosedVal A) → Embed {E = E} A (return x) (Make.ret {λ ()} x)
+    embed-op  : ∀ {A′ B′ : ValType}
+      → (i : A′ ↝ B′ ∈ E)
+      → (W : ClosedVal A′)
+      → (N : Γ ,c B′ ⊢⟨ E ⟩c 𝑭 A)
+      → (γ : Env Γ)
+      → (k : ∀ (Y : ClosedVal B′) → ∃[ T ] ((γ ,, Y) ⊢⟨ E ⟩c N ⇓ T) × ∃[ m ] Embed A T m)
+      → Embed A [op[ i ] W ⟨ƛ N ⟩⨾ γ ] (Make.op i W λ x → let (_ , _ , m , _) = k x in m)
 
-  𝓜⟦_⟧ : ∀ (C : CompType) → ℕ → Γ ⊢⟨ E ⟩c C → Env Γ → Set
-  𝓜⟦_⟧ C zero _ _ = ⊥
-  𝓜⟦_⟧ {E = E} C n@(suc _) M γ = ∃[ T ] γ ⊢⟨ E ⟩c M ⇓ T × (𝓒⟦ C ⟧ n T)
+  𝓒⟦𝑭_⟧ : ∀ (A : ValType) → Pred (ClosedTerminal E (𝑭 A)) _
+  𝓒⟦𝑭_⟧ {E} A T = ∃[ m ] Embed A T m × Make.MON E ClosedVal 𝓥⟦_⟧ A m
+
+-- mutual
+--   𝓥⟦_⟧ : ∀ (A : ValType) → ℕ → ClosedVal A → Set
+--   𝓥⟦ _ ⟧ zero _ = ⊥
+--   𝓥⟦ `⊤ ⟧ n@(suc _) `tt = ⊤
+--   𝓥⟦ 𝑼⟨ E ⟩ C ⟧ n@(suc _) [｛ M ｝⨾ γ ] = 𝓜⟦ C ⟧ n M γ
+--   𝓥⟦ A₁ `× A₂ ⟧ n@(suc _) `⟨ W₁ , W₂ ⟩ = 𝓥⟦ A₁ ⟧ n W₁ × 𝓥⟦ A₂ ⟧ n W₂
+--   𝓥⟦ A₁ `⊎ A₂ ⟧ n@(suc _) (`inj₁ W) = 𝓥⟦ A₁ ⟧ n W
+--   𝓥⟦ A₁ `⊎ A₂ ⟧ n@(suc _) (`inj₂ W) = 𝓥⟦ A₂ ⟧ n W
+
+--   𝓒⟦_⟧ : ∀ (C : CompType) → ℕ → ClosedTerminal E C → Set
+--   𝓒⟦ _ ⟧ zero _ = ⊥
+--   𝓒⟦ A ⇒ C ⟧ n@(suc _) [ƛ M ⨾ γ ] = ∀ (W : ClosedVal A) → 𝓥⟦ A ⟧ n W → 𝓜⟦ C ⟧ n M (γ ,, W)
+--   𝓒⟦ A ⇒ C ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
+--     𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ A ⇒ C ⟧ n N (γ ,, Y))
+--   𝓒⟦ 𝑭 A ⟧ n@(suc _) (return W) = 𝓥⟦ A ⟧ n W
+--   𝓒⟦ 𝑭 A ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
+--     𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ 𝑭 A ⟧ n N (γ ,, Y))
+--   𝓒⟦ C₁ & C₂ ⟧ n@(suc _) [ƛ⟨ M₁ , M₂ ⟩⨾ γ ] = 𝓜⟦ C₁ ⟧ n M₁ γ × 𝓜⟦ C₂ ⟧ n M₂ γ
+--   𝓒⟦ C₁ & C₂ ⟧ (suc n) ([op[_]_⟨ƛ_⟩⨾_] {A = A′} {B = B′} i W N γ) =
+--     𝓥⟦ A′ ⟧ n W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ n Y → 𝓜⟦ C₁ & C₂ ⟧ n N (γ ,, Y))
+
+--   𝓜⟦_⟧ : ∀ (C : CompType) → ℕ → Γ ⊢⟨ E ⟩c C → Env Γ → Set
+--   𝓜⟦_⟧ C zero _ _ = ⊥
+--   𝓜⟦_⟧ {E = E} C n@(suc _) M γ = ∃[ T ] γ ⊢⟨ E ⟩c M ⇓ T × (𝓒⟦ C ⟧ n T)
 
 -- mutual
 --   𝓥⟦_⟧ : ∀ {T : Type} → (A : ValType) → Acc _⊰_ T → ClosedVal A → Set

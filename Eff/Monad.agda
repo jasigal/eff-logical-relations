@@ -112,28 +112,6 @@ module Make (E : Effect) {ℓ : Level}
     f {ret x} (sx , _) = base ih x sx
     f {op i p k} (sp , sk) = induct ih i p sp k λ b sb → sk (b , sb)
 
-postulate
-  Eff : Effect
-  𝓥⟦_⟧ : ∀ (A : ValType) → ClosedVal A → Set
-
-open Make
-  Eff
-  ClosedVal
-  𝓥⟦_⟧
-
-data Embed : (A : ValType) → ClosedTerminal Eff (𝑭 A) → mon A → Set where
-  embed-ret : ∀ (x : ClosedVal A) → Embed A (return x) (ret {λ ()} x)
-  embed-op  : ∀ {A′ B′ : ValType}
-    → (i : A′ ↝ B′ ∈ Eff)
-    → (W : ClosedVal A′)
-    → (N : Γ ,c B′ ⊢⟨ Eff ⟩c 𝑭 A)
-    → (γ : Env Γ)
-    → (k : ∀ (Y : ClosedVal B′) → ∃[ T ] ((γ ,, Y) ⊢⟨ Eff ⟩c N ⇓ T) × ∃[ m ] Embed A T m)
-    → Embed A [op[ i ] W ⟨ƛ N ⟩⨾ γ ] (op i W λ x → let (_ , _ , m , _) = k x in m)
-
-𝓒⟦_⟧ : ∀ (A : ValType) → Pred (ClosedTerminal Eff (𝑭 A)) 0ℓ
-𝓒⟦_⟧ A T = ∃[ m ] Embed A T m × MON A m
-
 -- 𝓥⟦ A′ ⟧ W × (∀ (Y : ClosedVal B′) → 𝓥⟦ B′ ⟧ Y → ∃[ T ] (γ ,, Y) ⊢⟨ E ⟩c N ⇓ T × 𝓒⟦ 𝑭 A ⟧ T
 
 -- λ (Y , γ , N , T) → (γ ,, Y) ⊢⟨ E ⟩c N ⇓ T × 𝓒⟦ 𝑭 A ⟧ T
